@@ -14,7 +14,7 @@ This module deploys an Application Gateway Web Application Firewall (WAF) Policy
 
 | Resource Type | API Version |
 | :-- | :-- |
-| `Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies` | [2022-11-01](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Network/2022-11-01/ApplicationGatewayWebApplicationFirewallPolicies) |
+| `Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies` | [2024-03-01](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Network/2024-03-01/ApplicationGatewayWebApplicationFirewallPolicies) |
 
 ## Usage examples
 
@@ -150,7 +150,10 @@ module applicationGatewayWebApplicationFirewallPolicy 'br/public:avm/res/network
     // Non-required parameters
     location: '<location>'
     policySettings: {
+      customBlockResponseBody: 'PGh0bWw+CjxoZWFkZXI+PHRpdGxlPkhlbGxvPC90aXRsZT48L2hlYWRlcj4KPGJvZHk+CkhlbGxvIHdvcmxkCjwvYm9keT4KPC9odG1sPg=='
+      customBlockResponseStatusCode: 403
       fileUploadLimitInMb: 10
+      jsChallengeCookieExpirationInMins: 60
       mode: 'Prevention'
       state: 'Enabled'
     }
@@ -201,7 +204,10 @@ module applicationGatewayWebApplicationFirewallPolicy 'br/public:avm/res/network
     },
     "policySettings": {
       "value": {
+        "customBlockResponseBody": "PGh0bWw+CjxoZWFkZXI+PHRpdGxlPkhlbGxvPC90aXRsZT48L2hlYWRlcj4KPGJvZHk+CkhlbGxvIHdvcmxkCjwvYm9keT4KPC9odG1sPg==",
+        "customBlockResponseStatusCode": 403,
         "fileUploadLimitInMb": 10,
+        "jsChallengeCookieExpirationInMins": 60,
         "mode": "Prevention",
         "state": "Enabled"
       }
@@ -246,7 +252,10 @@ param name = 'nagwafpmax001'
 // Non-required parameters
 param location = '<location>'
 param policySettings = {
+  customBlockResponseBody: 'PGh0bWw+CjxoZWFkZXI+PHRpdGxlPkhlbGxvPC90aXRsZT48L2hlYWRlcj4KPGJvZHk+CkhlbGxvIHdvcmxkCjwvYm9keT4KPC9odG1sPg=='
+  customBlockResponseStatusCode: 403
   fileUploadLimitInMb: 10
+  jsChallengeCookieExpirationInMins: 60
   mode: 'Prevention'
   state: 'Enabled'
 }
@@ -292,6 +301,7 @@ module applicationGatewayWebApplicationFirewallPolicy 'br/public:avm/res/network
     location: '<location>'
     policySettings: {
       fileUploadLimitInMb: 10
+      jsChallengeCookieExpirationInMins: 60
       mode: 'Prevention'
       state: 'Enabled'
     }
@@ -342,6 +352,7 @@ module applicationGatewayWebApplicationFirewallPolicy 'br/public:avm/res/network
     "policySettings": {
       "value": {
         "fileUploadLimitInMb": 10,
+        "jsChallengeCookieExpirationInMins": 60,
         "mode": "Prevention",
         "state": "Enabled"
       }
@@ -386,6 +397,7 @@ param name = 'nagwafpwaf001'
 param location = '<location>'
 param policySettings = {
   fileUploadLimitInMb: 10
+  jsChallengeCookieExpirationInMins: 60
   mode: 'Prevention'
   state: 'Enabled'
 }
@@ -424,7 +436,6 @@ Describes the managedRules structure.
 
 - Required: Yes
 - Type: object
-- Nullable: No
 
 ### Parameter: `name`
 
@@ -432,7 +443,6 @@ Name of the Application Gateway WAF policy.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `customRules`
 
@@ -440,7 +450,6 @@ The custom rules inside the policy.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 ### Parameter: `enableTelemetry`
 
@@ -448,7 +457,6 @@ Enable/Disable usage telemetry for module.
 
 - Required: No
 - Type: bool
-- Nullable: No
 - Default: `True`
 
 ### Parameter: `location`
@@ -457,7 +465,6 @@ Location for all resources.
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `[resourceGroup().location]`
 
 ### Parameter: `policySettings`
@@ -466,7 +473,6 @@ The PolicySettings for policy.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ### Parameter: `tags`
 
@@ -474,7 +480,6 @@ Resource tags.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ## Outputs
 

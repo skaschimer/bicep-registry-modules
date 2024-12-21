@@ -29,6 +29,7 @@ This module deploys an Azure SQL Server.
 | `Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/databases/backupShortTermRetentionPolicies) |
 | `Microsoft.Sql/servers/elasticPools` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/elasticPools) |
 | `Microsoft.Sql/servers/encryptionProtector` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/encryptionProtector) |
+| `Microsoft.Sql/servers/failoverGroups` | [2024-05-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2024-05-01-preview/servers/failoverGroups) |
 | `Microsoft.Sql/servers/firewallRules` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/firewallRules) |
 | `Microsoft.Sql/servers/keys` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/keys) |
 | `Microsoft.Sql/servers/securityAlertPolicies` | [2023-08-01-preview](https://learn.microsoft.com/en-us/azure/templates/Microsoft.Sql/2023-08-01-preview/servers/securityAlertPolicies) |
@@ -47,11 +48,12 @@ The following section provides usage examples for the module, which were used to
 - [With audit settings](#example-2-with-audit-settings)
 - [Using only defaults](#example-3-using-only-defaults)
 - [Using elastic pool](#example-4-using-elastic-pool)
-- [Deploying with a key vault reference to save secrets](#example-5-deploying-with-a-key-vault-reference-to-save-secrets)
-- [Using large parameter set](#example-6-using-large-parameter-set)
-- [With a secondary database](#example-7-with-a-secondary-database)
-- [With vulnerability assessment](#example-8-with-vulnerability-assessment)
-- [WAF-aligned](#example-9-waf-aligned)
+- [Using failover groups](#example-5-using-failover-groups)
+- [Deploying with a key vault reference to save secrets](#example-6-deploying-with-a-key-vault-reference-to-save-secrets)
+- [Using large parameter set](#example-7-using-large-parameter-set)
+- [With a secondary database](#example-8-with-a-secondary-database)
+- [With vulnerability assessment](#example-9-with-vulnerability-assessment)
+- [WAF-aligned](#example-10-waf-aligned)
 
 ### Example 1: _With an administrator_
 
@@ -446,7 +448,313 @@ param location = '<location>'
 </details>
 <p>
 
-### Example 5: _Deploying with a key vault reference to save secrets_
+### Example 5: _Using failover groups_
+
+This instance deploys the module with failover groups.
+
+
+<details>
+
+<summary>via Bicep module</summary>
+
+```bicep
+module server 'br/public:avm/res/sql/server:<version>' = {
+  name: 'serverDeployment'
+  params: {
+    // Required parameters
+    name: 'ssfog001'
+    // Non-required parameters
+    administratorLogin: 'adminUserName'
+    administratorLoginPassword: '<administratorLoginPassword>'
+    databases: [
+      {
+        maxSizeBytes: 2147483648
+        name: 'ssfog-db1'
+        sku: {
+          name: 'S1'
+          tier: 'Standard'
+        }
+        zoneRedundant: false
+      }
+      {
+        maxSizeBytes: 2147483648
+        name: 'ssfog-db2'
+        sku: {
+          capacity: 2
+          name: 'GP_Gen5'
+          tier: 'GeneralPurpose'
+        }
+        zoneRedundant: false
+      }
+      {
+        maxSizeBytes: 2147483648
+        name: 'ssfog-db3'
+        sku: {
+          name: 'S1'
+          tier: 'Standard'
+        }
+        zoneRedundant: false
+      }
+    ]
+    failoverGroups: [
+      {
+        databases: [
+          'ssfog-db1'
+        ]
+        name: 'ssfog-fg-geo'
+        partnerServers: [
+          '<secondaryServerName>'
+        ]
+        readWriteEndpoint: {
+          failoverPolicy: 'Manual'
+        }
+        secondaryType: 'Geo'
+      }
+      {
+        databases: [
+          'ssfog-db2'
+        ]
+        name: 'ssfog-fg-standby'
+        partnerServers: [
+          '<secondaryServerName>'
+        ]
+        readWriteEndpoint: {
+          failoverPolicy: 'Automatic'
+          failoverWithDataLossGracePeriodMinutes: 60
+        }
+        secondaryType: 'Standby'
+      }
+      {
+        databases: [
+          'ssfog-db3'
+        ]
+        name: 'ssfog-fg-readonly'
+        partnerServers: [
+          '<secondaryServerName>'
+        ]
+        readOnlyEndpoint: {
+          failoverPolicy: 'Enabled'
+          targetServer: '<targetServer>'
+        }
+        readWriteEndpoint: {
+          failoverPolicy: 'Manual'
+        }
+        secondaryType: 'Geo'
+      }
+    ]
+    location: '<location>'
+  }
+}
+```
+
+</details>
+<p>
+
+<details>
+
+<summary>via JSON parameters file</summary>
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    // Required parameters
+    "name": {
+      "value": "ssfog001"
+    },
+    // Non-required parameters
+    "administratorLogin": {
+      "value": "adminUserName"
+    },
+    "administratorLoginPassword": {
+      "value": "<administratorLoginPassword>"
+    },
+    "databases": {
+      "value": [
+        {
+          "maxSizeBytes": 2147483648,
+          "name": "ssfog-db1",
+          "sku": {
+            "name": "S1",
+            "tier": "Standard"
+          },
+          "zoneRedundant": false
+        },
+        {
+          "maxSizeBytes": 2147483648,
+          "name": "ssfog-db2",
+          "sku": {
+            "capacity": 2,
+            "name": "GP_Gen5",
+            "tier": "GeneralPurpose"
+          },
+          "zoneRedundant": false
+        },
+        {
+          "maxSizeBytes": 2147483648,
+          "name": "ssfog-db3",
+          "sku": {
+            "name": "S1",
+            "tier": "Standard"
+          },
+          "zoneRedundant": false
+        }
+      ]
+    },
+    "failoverGroups": {
+      "value": [
+        {
+          "databases": [
+            "ssfog-db1"
+          ],
+          "name": "ssfog-fg-geo",
+          "partnerServers": [
+            "<secondaryServerName>"
+          ],
+          "readWriteEndpoint": {
+            "failoverPolicy": "Manual"
+          },
+          "secondaryType": "Geo"
+        },
+        {
+          "databases": [
+            "ssfog-db2"
+          ],
+          "name": "ssfog-fg-standby",
+          "partnerServers": [
+            "<secondaryServerName>"
+          ],
+          "readWriteEndpoint": {
+            "failoverPolicy": "Automatic",
+            "failoverWithDataLossGracePeriodMinutes": 60
+          },
+          "secondaryType": "Standby"
+        },
+        {
+          "databases": [
+            "ssfog-db3"
+          ],
+          "name": "ssfog-fg-readonly",
+          "partnerServers": [
+            "<secondaryServerName>"
+          ],
+          "readOnlyEndpoint": {
+            "failoverPolicy": "Enabled",
+            "targetServer": "<targetServer>"
+          },
+          "readWriteEndpoint": {
+            "failoverPolicy": "Manual"
+          },
+          "secondaryType": "Geo"
+        }
+      ]
+    },
+    "location": {
+      "value": "<location>"
+    }
+  }
+}
+```
+
+</details>
+<p>
+
+<details>
+
+<summary>via Bicep parameters file</summary>
+
+```bicep-params
+using 'br/public:avm/res/sql/server:<version>'
+
+// Required parameters
+param name = 'ssfog001'
+// Non-required parameters
+param administratorLogin = 'adminUserName'
+param administratorLoginPassword = '<administratorLoginPassword>'
+param databases = [
+  {
+    maxSizeBytes: 2147483648
+    name: 'ssfog-db1'
+    sku: {
+      name: 'S1'
+      tier: 'Standard'
+    }
+    zoneRedundant: false
+  }
+  {
+    maxSizeBytes: 2147483648
+    name: 'ssfog-db2'
+    sku: {
+      capacity: 2
+      name: 'GP_Gen5'
+      tier: 'GeneralPurpose'
+    }
+    zoneRedundant: false
+  }
+  {
+    maxSizeBytes: 2147483648
+    name: 'ssfog-db3'
+    sku: {
+      name: 'S1'
+      tier: 'Standard'
+    }
+    zoneRedundant: false
+  }
+]
+param failoverGroups = [
+  {
+    databases: [
+      'ssfog-db1'
+    ]
+    name: 'ssfog-fg-geo'
+    partnerServers: [
+      '<secondaryServerName>'
+    ]
+    readWriteEndpoint: {
+      failoverPolicy: 'Manual'
+    }
+    secondaryType: 'Geo'
+  }
+  {
+    databases: [
+      'ssfog-db2'
+    ]
+    name: 'ssfog-fg-standby'
+    partnerServers: [
+      '<secondaryServerName>'
+    ]
+    readWriteEndpoint: {
+      failoverPolicy: 'Automatic'
+      failoverWithDataLossGracePeriodMinutes: 60
+    }
+    secondaryType: 'Standby'
+  }
+  {
+    databases: [
+      'ssfog-db3'
+    ]
+    name: 'ssfog-fg-readonly'
+    partnerServers: [
+      '<secondaryServerName>'
+    ]
+    readOnlyEndpoint: {
+      failoverPolicy: 'Enabled'
+      targetServer: '<targetServer>'
+    }
+    readWriteEndpoint: {
+      failoverPolicy: 'Manual'
+    }
+    secondaryType: 'Geo'
+  }
+]
+param location = '<location>'
+```
+
+</details>
+<p>
+
+### Example 6: _Deploying with a key vault reference to save secrets_
 
 This instance deploys the module saving all its secrets in a key vault.
 
@@ -557,7 +865,7 @@ param secretsExportConfiguration = {
 </details>
 <p>
 
-### Example 6: _Using large parameter set_
+### Example 7: _Using large parameter set_
 
 This instance deploys the module with most of its features enabled.
 
@@ -1097,7 +1405,7 @@ param vulnerabilityAssessmentsObj = {
 </details>
 <p>
 
-### Example 7: _With a secondary database_
+### Example 8: _With a secondary database_
 
 This instance deploys the module with a secondary database.
 
@@ -1229,7 +1537,7 @@ param tags = {
 </details>
 <p>
 
-### Example 8: _With vulnerability assessment_
+### Example 9: _With vulnerability assessment_
 
 This instance deploys the module with a vulnerability assessment.
 
@@ -1412,7 +1720,7 @@ param vulnerabilityAssessmentsObj = {
 </details>
 <p>
 
-### Example 9: _WAF-aligned_
+### Example 10: _WAF-aligned_
 
 This instance deploys the module in alignment with the best-practices of the Azure Well-Architected Framework.
 
@@ -1863,11 +2171,12 @@ param vulnerabilityAssessmentsObj = {
 
 | Parameter | Type | Description |
 | :-- | :-- | :-- |
-| [`auditSettings`](#parameter-auditsettings) | object | The audit settings configuration. |
+| [`auditSettings`](#parameter-auditsettings) | object | The audit settings configuration. If you want to disable auditing, set the parmaeter to an empty object. |
 | [`databases`](#parameter-databases) | array | The databases to create in the server. |
 | [`elasticPools`](#parameter-elasticpools) | array | The Elastic Pools to create in the server. |
 | [`enableTelemetry`](#parameter-enabletelemetry) | bool | Enable/Disable usage telemetry for module. |
 | [`encryptionProtectorObj`](#parameter-encryptionprotectorobj) | object | The encryption protection configuration. |
+| [`failoverGroups`](#parameter-failovergroups) | array | The failover groups configuration. |
 | [`federatedClientId`](#parameter-federatedclientid) | string | The Client id used for cross tenant CMK scenario. |
 | [`firewallRules`](#parameter-firewallrules) | array | The firewall rules to create in the server. |
 | [`isIPv6Enabled`](#parameter-isipv6enabled) | string | Whether or not to enable IPv6 support for this server. |
@@ -1893,7 +2202,6 @@ The name of the server.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `administratorLogin`
 
@@ -1901,7 +2209,6 @@ The administrator username for the server. Required if no `administrators` objec
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `''`
 
 ### Parameter: `administratorLoginPassword`
@@ -1910,7 +2217,6 @@ The administrator login password. Required if no `administrators` object for AAD
 
 - Required: No
 - Type: securestring
-- Nullable: No
 - Default: `''`
 
 ### Parameter: `administrators`
@@ -1919,7 +2225,6 @@ The Azure Active Directory (AAD) administrator authentication. Required if no `a
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -1943,7 +2248,6 @@ Azure Active Directory only Authentication enabled.
 
 - Required: Yes
 - Type: bool
-- Nullable: No
 
 ### Parameter: `administrators.login`
 
@@ -1951,7 +2255,6 @@ Login name of the server administrator.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `administrators.principalType`
 
@@ -1959,7 +2262,6 @@ Principal Type of the sever administrator.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 - Allowed:
   ```Bicep
   [
@@ -1975,7 +2277,6 @@ SID (object ID) of the server administrator.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `administrators.administratorType`
 
@@ -1983,7 +2284,6 @@ Type of the sever administrator.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -1997,7 +2297,6 @@ Tenant ID of the administrator.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `primaryUserAssignedIdentityId`
 
@@ -2005,17 +2304,20 @@ The resource ID of a user assigned identity to be used by default. Required if "
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `''`
 
 ### Parameter: `auditSettings`
 
-The audit settings configuration.
+The audit settings configuration. If you want to disable auditing, set the parmaeter to an empty object.
 
 - Required: No
 - Type: object
-- Nullable: No
-- Default: `{}`
+- Default:
+  ```Bicep
+  {
+      state: 'Enabled'
+  }
+  ```
 
 **Optional parameters**
 
@@ -2038,7 +2340,6 @@ Specifies the Actions-Groups and Actions to audit.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 ### Parameter: `auditSettings.isAzureMonitorTargetEnabled`
 
@@ -2046,7 +2347,6 @@ Specifies whether audit events are sent to Azure Monitor.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `auditSettings.isDevopsAuditEnabled`
 
@@ -2054,7 +2354,6 @@ Specifies the state of devops audit. If state is Enabled, devops logs will be se
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `auditSettings.isManagedIdentityInUse`
 
@@ -2062,7 +2361,6 @@ Specifies whether Managed Identity is used to access blob storage.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `auditSettings.isStorageSecondaryKeyInUse`
 
@@ -2070,7 +2368,6 @@ Specifies whether storageAccountAccessKey value is the storage's secondary key.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `auditSettings.name`
 
@@ -2078,7 +2375,6 @@ Specifies the name of the audit settings.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `auditSettings.queueDelayMs`
 
@@ -2086,7 +2382,6 @@ Specifies the amount of time in milliseconds that can elapse before audit action
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `auditSettings.retentionDays`
 
@@ -2094,7 +2389,6 @@ Specifies the number of days to keep in the audit logs in the storage account.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `auditSettings.state`
 
@@ -2102,7 +2396,6 @@ Specifies the state of the audit. If state is Enabled, storageEndpoint or isAzur
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2117,7 +2410,6 @@ Specifies the identifier key of the auditing storage account.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases`
 
@@ -2125,7 +2417,6 @@ The databases to create in the server.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Required parameters**
@@ -2183,7 +2474,6 @@ The name of the Elastic Pool.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `databases.autoPauseDelay`
 
@@ -2191,7 +2481,6 @@ Time in minutes after which database is automatically paused. A value of -1 mean
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.availabilityZone`
 
@@ -2199,7 +2488,6 @@ Specifies the availability zone the database is pinned to.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2216,7 +2504,6 @@ The long term backup retention policy for the database.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -2235,7 +2522,6 @@ The BackupStorageAccessTier for the LTR backups.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2250,7 +2536,6 @@ The setting whether to make LTR backups immutable.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.backupLongTermRetentionPolicy.monthlyRetention`
 
@@ -2258,7 +2543,6 @@ Monthly retention in ISO 8601 duration format.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.backupLongTermRetentionPolicy.weeklyRetention`
 
@@ -2266,7 +2550,6 @@ Weekly retention in ISO 8601 duration format.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.backupLongTermRetentionPolicy.weekOfYear`
 
@@ -2274,7 +2557,6 @@ Week of year backup to keep for yearly retention.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.backupLongTermRetentionPolicy.yearlyRetention`
 
@@ -2282,7 +2564,6 @@ Yearly retention in ISO 8601 duration format.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.backupShortTermRetentionPolicy`
 
@@ -2290,7 +2571,6 @@ The short term backup retention policy for the database.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -2305,7 +2585,6 @@ Differential backup interval in hours. For Hyperscale tiers this value will be i
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.backupShortTermRetentionPolicy.retentionDays`
 
@@ -2313,7 +2592,6 @@ Point-in-time retention in days.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.catalogCollation`
 
@@ -2321,7 +2599,6 @@ Collation of the metadata catalog.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.collation`
 
@@ -2329,7 +2606,6 @@ The collation of the database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.createMode`
 
@@ -2337,7 +2613,6 @@ Specifies the mode of database creation.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2360,7 +2635,6 @@ The diagnostic settings of the service.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -2382,7 +2656,6 @@ Resource ID of the diagnostic event hub authorization rule for the Event Hubs na
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.eventHubName`
 
@@ -2390,7 +2663,6 @@ Name of the diagnostic event hub within the namespace to which logs are streamed
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.logAnalyticsDestinationType`
 
@@ -2398,7 +2670,6 @@ A string indicating whether the export to Log Analytics should use the default d
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2413,7 +2684,6 @@ The name of logs that will be streamed. "allLogs" includes all possible logs for
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -2429,7 +2699,6 @@ Name of a Diagnostic Log category for a resource type this setting is applied to
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.logCategoriesAndGroups.categoryGroup`
 
@@ -2437,7 +2706,6 @@ Name of a Diagnostic Log category group for a resource type this setting is appl
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.logCategoriesAndGroups.enabled`
 
@@ -2445,7 +2713,6 @@ Enable or disable the category explicitly. Default is `true`.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.marketplacePartnerResourceId`
 
@@ -2453,7 +2720,6 @@ The full ARM resource ID of the Marketplace resource to which you would like to 
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.metricCategories`
 
@@ -2461,7 +2727,6 @@ The name of metrics that will be streamed. "allMetrics" includes all possible me
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Required parameters**
 
@@ -2481,7 +2746,6 @@ Name of a Diagnostic Metric category for a resource type this setting is applied
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `databases.diagnosticSettings.metricCategories.enabled`
 
@@ -2489,7 +2753,6 @@ Enable or disable the category explicitly. Default is `true`.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.name`
 
@@ -2497,7 +2760,6 @@ The name of the diagnostic setting.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.storageAccountResourceId`
 
@@ -2505,7 +2767,6 @@ Resource ID of the diagnostic storage account. For security reasons, it is recom
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.diagnosticSettings.workspaceResourceId`
 
@@ -2513,7 +2774,6 @@ Resource ID of the diagnostic log analytics workspace. For security reasons, it 
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.elasticPoolResourceId`
 
@@ -2521,7 +2781,6 @@ The resource identifier of the elastic pool containing this database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.encryptionProtector`
 
@@ -2529,7 +2788,6 @@ The azure key vault URI of the database if it's configured with per Database Cus
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.encryptionProtectorAutoRotation`
 
@@ -2537,7 +2795,6 @@ The flag to enable or disable auto rotation of database encryption protector AKV
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.federatedClientId`
 
@@ -2545,7 +2802,6 @@ The Client id used for cross tenant per database CMK scenario.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.freeLimitExhaustionBehavior`
 
@@ -2553,7 +2809,6 @@ Specifies the behavior when monthly free limits are exhausted for the free datab
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2568,7 +2823,6 @@ The number of secondary replicas associated with the database that are used to p
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.isLedgerOn`
 
@@ -2576,7 +2830,6 @@ Whether or not this database is a ledger database, which means all tables in the
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.licenseType`
 
@@ -2584,7 +2837,6 @@ The license type to apply for this database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2599,7 +2851,6 @@ The resource identifier of the long term retention backup associated with create
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.maintenanceConfigurationId`
 
@@ -2607,7 +2858,6 @@ Maintenance configuration id assigned to the database. This configuration define
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.manualCutover`
 
@@ -2615,7 +2865,6 @@ Whether or not customer controlled manual cutover needs to be done during Update
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.maxSizeBytes`
 
@@ -2623,7 +2872,6 @@ The max size of the database expressed in bytes.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.minCapacity`
 
@@ -2631,7 +2879,6 @@ Minimal capacity that database will always have allocated, if not paused.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.performCutover`
 
@@ -2639,7 +2886,6 @@ To trigger customer controlled manual cutover during the wait state while Scalin
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.preferredEnclaveType`
 
@@ -2647,7 +2893,6 @@ Type of enclave requested on the database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2662,7 +2907,6 @@ The state of read-only routing. If enabled, connections that have application in
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2677,7 +2921,6 @@ The resource identifier of the recoverable database associated with create opera
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.recoveryServicesRecoveryPointResourceId`
 
@@ -2685,7 +2928,6 @@ The resource identifier of the recovery point associated with create operation o
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.requestedBackupStorageRedundancy`
 
@@ -2693,7 +2935,6 @@ The storage account type to be used to store backups for this database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2710,7 +2951,6 @@ The resource identifier of the restorable dropped database associated with creat
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.restorePointInTime`
 
@@ -2718,7 +2958,6 @@ Specifies the point in time (ISO8601 format) of the source database that will be
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sampleName`
 
@@ -2726,7 +2965,6 @@ The name of the sample schema to apply when creating this database.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.secondaryType`
 
@@ -2734,7 +2972,6 @@ The secondary type of the database if it is a secondary.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2750,7 +2987,6 @@ The database SKU.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -2773,7 +3009,6 @@ The name of the SKU, typically, a letter + Number code, e.g. P3.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `databases.sku.capacity`
 
@@ -2781,7 +3016,6 @@ The capacity of the particular SKU.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `databases.sku.family`
 
@@ -2789,7 +3023,6 @@ If the service has different generations of hardware, for the same SKU, then tha
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sku.size`
 
@@ -2797,7 +3030,6 @@ Size of the particular SKU.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sku.tier`
 
@@ -2805,7 +3037,6 @@ The tier or edition of the particular SKU, e.g. Basic, Premium.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sourceDatabaseDeletionDate`
 
@@ -2813,7 +3044,6 @@ Specifies the time that the database was deleted.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sourceDatabaseResourceId`
 
@@ -2821,7 +3051,6 @@ The resource identifier of the source database associated with create operation 
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.sourceResourceId`
 
@@ -2829,7 +3058,6 @@ The resource identifier of the source associated with the create operation of th
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `databases.tags`
 
@@ -2837,7 +3065,6 @@ Tags of the resource.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ### Parameter: `databases.useFreeLimit`
 
@@ -2845,7 +3072,6 @@ Whether or not the database uses free monthly limits. Allowed on one database in
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `databases.zoneRedundant`
 
@@ -2853,7 +3079,6 @@ Whether or not this database is zone redundant, which means the replicas of this
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `elasticPools`
 
@@ -2861,7 +3086,6 @@ The Elastic Pools to create in the server.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Required parameters**
@@ -2893,7 +3117,6 @@ The name of the Elastic Pool.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `elasticPools.autoPauseDelay`
 
@@ -2901,7 +3124,6 @@ Time in minutes after which elastic pool is automatically paused. A value of -1 
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.availabilityZone`
 
@@ -2909,7 +3131,6 @@ Specifies the availability zone the pool's primary replica is pinned to.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2926,7 +3147,6 @@ The number of secondary replicas associated with the elastic pool that are used 
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.licenseType`
 
@@ -2934,7 +3154,6 @@ The license type to apply for this elastic pool.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -2949,7 +3168,6 @@ Maintenance configuration id assigned to the elastic pool. This configuration de
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `elasticPools.maxSizeBytes`
 
@@ -2957,7 +3175,6 @@ The storage limit for the database elastic pool in bytes.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.minCapacity`
 
@@ -2965,7 +3182,6 @@ Minimal capacity that serverless pool will not shrink below, if not paused.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.perDatabaseSettings`
 
@@ -2973,7 +3189,6 @@ The per database settings for the elastic pool.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -2994,7 +3209,6 @@ The maximum capacity any one database can consume. Examples: '0.5', '2'.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `elasticPools.perDatabaseSettings.minCapacity`
 
@@ -3002,7 +3216,6 @@ The minimum capacity all databases are guaranteed. Examples: '0.5', '1'.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `elasticPools.perDatabaseSettings.autoPauseDelay`
 
@@ -3010,7 +3223,6 @@ Auto Pause Delay for per database within pool.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.preferredEnclaveType`
 
@@ -3018,7 +3230,6 @@ Type of enclave requested on the elastic pool.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3033,7 +3244,6 @@ The elastic pool SKU.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3056,7 +3266,6 @@ The name of the SKU, typically, a letter + Number code, e.g. P3.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 - Allowed:
   ```Bicep
   [
@@ -3081,7 +3290,6 @@ The capacity of the particular SKU.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `elasticPools.sku.family`
 
@@ -3089,7 +3297,6 @@ If the service has different generations of hardware, for the same SKU, then tha
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `elasticPools.sku.size`
 
@@ -3097,7 +3304,6 @@ Size of the particular SKU.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `elasticPools.sku.tier`
 
@@ -3105,7 +3311,6 @@ The tier or edition of the particular SKU, e.g. Basic, Premium.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `elasticPools.tags`
 
@@ -3113,7 +3318,6 @@ Tags of the resource.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ### Parameter: `elasticPools.zoneRedundant`
 
@@ -3121,7 +3325,6 @@ Whether or not this elastic pool is zone redundant, which means the replicas of 
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `enableTelemetry`
 
@@ -3129,7 +3332,6 @@ Enable/Disable usage telemetry for module.
 
 - Required: No
 - Type: bool
-- Nullable: No
 - Default: `True`
 
 ### Parameter: `encryptionProtectorObj`
@@ -3138,7 +3340,6 @@ The encryption protection configuration.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3159,7 +3360,6 @@ The name of the server key.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `encryptionProtectorObj.autoRotationEnabled`
 
@@ -3167,7 +3367,6 @@ Key auto rotation opt-in flag.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `encryptionProtectorObj.serverKeyType`
 
@@ -3175,7 +3374,6 @@ The encryption protector type.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3184,13 +3382,146 @@ The encryption protector type.
   ]
   ```
 
+### Parameter: `failoverGroups`
+
+The failover groups configuration.
+
+- Required: No
+- Type: array
+- Default: `[]`
+
+**Required parameters**
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| [`databases`](#parameter-failovergroupsdatabases) | array | List of databases in the failover group. |
+| [`name`](#parameter-failovergroupsname) | string | The name of the failover group. |
+| [`partnerServers`](#parameter-failovergroupspartnerservers) | array | List of the partner servers for the failover group. |
+| [`readWriteEndpoint`](#parameter-failovergroupsreadwriteendpoint) | object | Read-write endpoint of the failover group instance. |
+| [`secondaryType`](#parameter-failovergroupssecondarytype) | string | Databases secondary type on partner server. |
+
+**Optional parameters**
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| [`readOnlyEndpoint`](#parameter-failovergroupsreadonlyendpoint) | object | Read-only endpoint of the failover group instance. |
+
+### Parameter: `failoverGroups.databases`
+
+List of databases in the failover group.
+
+- Required: Yes
+- Type: array
+
+### Parameter: `failoverGroups.name`
+
+The name of the failover group.
+
+- Required: Yes
+- Type: string
+
+### Parameter: `failoverGroups.partnerServers`
+
+List of the partner servers for the failover group.
+
+- Required: Yes
+- Type: array
+
+### Parameter: `failoverGroups.readWriteEndpoint`
+
+Read-write endpoint of the failover group instance.
+
+- Required: Yes
+- Type: object
+
+**Required parameters**
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| [`failoverPolicy`](#parameter-failovergroupsreadwriteendpointfailoverpolicy) | string | Failover policy of the read-write endpoint for the failover group. If failoverPolicy is Automatic then failoverWithDataLossGracePeriodMinutes is required. |
+
+**Optional parameters**
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| [`failoverWithDataLossGracePeriodMinutes`](#parameter-failovergroupsreadwriteendpointfailoverwithdatalossgraceperiodminutes) | int | Grace period before failover with data loss is attempted for the read-write endpoint. |
+
+### Parameter: `failoverGroups.readWriteEndpoint.failoverPolicy`
+
+Failover policy of the read-write endpoint for the failover group. If failoverPolicy is Automatic then failoverWithDataLossGracePeriodMinutes is required.
+
+- Required: Yes
+- Type: string
+- Allowed:
+  ```Bicep
+  [
+    'Automatic'
+    'Manual'
+  ]
+  ```
+
+### Parameter: `failoverGroups.readWriteEndpoint.failoverWithDataLossGracePeriodMinutes`
+
+Grace period before failover with data loss is attempted for the read-write endpoint.
+
+- Required: No
+- Type: int
+
+### Parameter: `failoverGroups.secondaryType`
+
+Databases secondary type on partner server.
+
+- Required: Yes
+- Type: string
+- Allowed:
+  ```Bicep
+  [
+    'Geo'
+    'Standby'
+  ]
+  ```
+
+### Parameter: `failoverGroups.readOnlyEndpoint`
+
+Read-only endpoint of the failover group instance.
+
+- Required: No
+- Type: object
+
+**Required parameters**
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| [`failoverPolicy`](#parameter-failovergroupsreadonlyendpointfailoverpolicy) | string | Failover policy of the read-only endpoint for the failover group. |
+| [`targetServer`](#parameter-failovergroupsreadonlyendpointtargetserver) | string | The target partner server where the read-only endpoint points to. |
+
+### Parameter: `failoverGroups.readOnlyEndpoint.failoverPolicy`
+
+Failover policy of the read-only endpoint for the failover group.
+
+- Required: Yes
+- Type: string
+- Allowed:
+  ```Bicep
+  [
+    'Disabled'
+    'Enabled'
+  ]
+  ```
+
+### Parameter: `failoverGroups.readOnlyEndpoint.targetServer`
+
+The target partner server where the read-only endpoint points to.
+
+- Required: Yes
+- Type: string
+
 ### Parameter: `federatedClientId`
 
 The Client id used for cross tenant CMK scenario.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `firewallRules`
 
@@ -3198,7 +3529,6 @@ The firewall rules to create in the server.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Required parameters**
@@ -3220,7 +3550,6 @@ The name of the firewall rule.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `firewallRules.endIpAddress`
 
@@ -3228,7 +3557,6 @@ The end IP address of the firewall rule. Must be IPv4 format. Must be greater th
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `firewallRules.startIpAddress`
 
@@ -3236,7 +3564,6 @@ The start IP address of the firewall rule. Must be IPv4 format. Use value '0.0.0
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `isIPv6Enabled`
 
@@ -3244,7 +3571,6 @@ Whether or not to enable IPv6 support for this server.
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `'Disabled'`
 - Allowed:
   ```Bicep
@@ -3260,7 +3586,6 @@ A CMK URI of the key to use for encryption.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `keys`
 
@@ -3268,7 +3593,6 @@ The keys to configure.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Optional parameters**
@@ -3285,7 +3609,6 @@ The name of the key. Must follow the [<keyVaultName>_<keyName>_<keyVersion>] pat
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `keys.serverKeyType`
 
@@ -3293,7 +3616,6 @@ The server key type.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3308,7 +3630,6 @@ The URI of the server key. If the ServerKeyType is AzureKeyVault, then the URI i
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `location`
 
@@ -3316,7 +3637,6 @@ Location for all resources.
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `[resourceGroup().location]`
 
 ### Parameter: `lock`
@@ -3325,7 +3645,6 @@ The lock settings of the service.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -3340,7 +3659,6 @@ Specify the type of lock.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3356,7 +3674,6 @@ Specify the name of lock.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `managedIdentities`
 
@@ -3364,7 +3681,6 @@ The managed identity definition for this resource.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -3379,7 +3695,6 @@ Enables system assigned managed identity on the resource.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `managedIdentities.userAssignedResourceIds`
 
@@ -3387,7 +3702,6 @@ The resource ID(s) to assign to the resource. Required if a user assigned identi
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 ### Parameter: `minimalTlsVersion`
 
@@ -3395,7 +3709,6 @@ Minimal TLS version allowed.
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `'1.2'`
 - Allowed:
   ```Bicep
@@ -3413,7 +3726,6 @@ Configuration details for private endpoints. For security reasons, it is recomme
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3448,7 +3760,6 @@ Resource ID of the subnet where the endpoint needs to be created.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.applicationSecurityGroupResourceIds`
 
@@ -3456,7 +3767,6 @@ Application security groups in which the Private Endpoint IP configuration is in
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.customDnsConfigs`
 
@@ -3464,7 +3774,6 @@ Custom DNS configurations.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3484,7 +3793,6 @@ A list of private IP addresses of the private endpoint.
 
 - Required: Yes
 - Type: array
-- Nullable: No
 
 ### Parameter: `privateEndpoints.customDnsConfigs.fqdn`
 
@@ -3492,7 +3800,6 @@ FQDN that resolves to private endpoint IP address.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.customNetworkInterfaceName`
 
@@ -3500,7 +3807,6 @@ The custom name of the network interface attached to the Private Endpoint.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.enableTelemetry`
 
@@ -3508,7 +3814,6 @@ Enable/Disable usage telemetry for module.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.ipConfigurations`
 
@@ -3516,7 +3821,6 @@ A list of IP configurations of the Private Endpoint. This will be used to map to
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3531,7 +3835,6 @@ The name of the resource that is unique within a resource group.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.ipConfigurations.properties`
 
@@ -3539,7 +3842,6 @@ Properties of private endpoint IP configurations.
 
 - Required: Yes
 - Type: object
-- Nullable: No
 
 **Required parameters**
 
@@ -3555,7 +3857,6 @@ The ID of a group obtained from the remote resource that this private endpoint s
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.ipConfigurations.properties.memberName`
 
@@ -3563,7 +3864,6 @@ The member name of a group obtained from the remote resource that this private e
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.ipConfigurations.properties.privateIPAddress`
 
@@ -3571,7 +3871,6 @@ A private IP address obtained from the private endpoint's subnet.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.isManualConnection`
 
@@ -3579,7 +3878,6 @@ If Manual Private Link Connection is required.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.location`
 
@@ -3587,7 +3885,6 @@ The location to deploy the Private Endpoint to.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.lock`
 
@@ -3595,7 +3892,6 @@ Specify the type of lock.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Optional parameters**
 
@@ -3610,7 +3906,6 @@ Specify the type of lock.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3626,7 +3921,6 @@ Specify the name of lock.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.manualConnectionRequestMessage`
 
@@ -3634,7 +3928,6 @@ A message passed to the owner of the remote resource with the manual connection 
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.name`
 
@@ -3642,7 +3935,6 @@ The name of the Private Endpoint.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.privateDnsZoneGroup`
 
@@ -3650,7 +3942,6 @@ The private DNS Zone Group to configure for the Private Endpoint.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -3670,7 +3961,6 @@ The private DNS Zone Groups to associate the Private Endpoint. A DNS Zone Group 
 
 - Required: Yes
 - Type: array
-- Nullable: No
 
 **Required parameters**
 
@@ -3690,7 +3980,6 @@ The resource id of the private DNS zone.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.privateDnsZoneGroup.privateDnsZoneGroupConfigs.name`
 
@@ -3698,7 +3987,6 @@ The name of the private DNS Zone Group config.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.privateDnsZoneGroup.name`
 
@@ -3706,7 +3994,6 @@ The name of the Private DNS Zone Group.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.privateLinkServiceConnectionName`
 
@@ -3714,7 +4001,6 @@ The name of the private link connection to create.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.resourceGroupName`
 
@@ -3722,7 +4008,6 @@ Specify if you want to deploy the Private Endpoint into a different Resource Gro
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.roleAssignments`
 
@@ -3730,7 +4015,6 @@ Array of role assignments to create.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 - Roles configurable by name:
   - `'Contributor'`
   - `'DNS Resolver Contributor'`
@@ -3767,7 +4051,6 @@ The principal ID of the principal (user/group/identity) to assign the role to.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.roleAssignments.roleDefinitionIdOrName`
 
@@ -3775,7 +4058,6 @@ The role to assign. You can provide either the display name of the role definiti
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `privateEndpoints.roleAssignments.condition`
 
@@ -3783,7 +4065,6 @@ The conditions on the role assignment. This limits the resources it can be assig
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.roleAssignments.conditionVersion`
 
@@ -3791,7 +4072,6 @@ Version of the condition.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3805,7 +4085,6 @@ The Resource Id of the delegated managed identity resource.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.roleAssignments.description`
 
@@ -3813,7 +4092,6 @@ The description of the role assignment.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.roleAssignments.name`
 
@@ -3821,7 +4099,6 @@ The name (as GUID) of the role assignment. If not provided, a GUID will be gener
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.roleAssignments.principalType`
 
@@ -3829,7 +4106,6 @@ The principal type of the assigned principal ID.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3847,7 +4123,6 @@ The subresource to deploy the Private Endpoint for. For example "vault" for a Ke
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `privateEndpoints.tags`
 
@@ -3855,7 +4130,6 @@ Tags to be applied on all resources/Resource Groups in this deployment.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ### Parameter: `publicNetworkAccess`
 
@@ -3863,7 +4137,6 @@ Whether or not public network access is allowed for this resource. For security 
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `''`
 - Allowed:
   ```Bicep
@@ -3881,7 +4154,6 @@ Whether or not to restrict outbound network access for this server.
 
 - Required: No
 - Type: string
-- Nullable: No
 - Default: `''`
 - Allowed:
   ```Bicep
@@ -3898,7 +4170,6 @@ Array of role assignments to create.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 - Roles configurable by name:
   - `'Contributor'`
   - `'Owner'`
@@ -3937,7 +4208,6 @@ The principal ID of the principal (user/group/identity) to assign the role to.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `roleAssignments.roleDefinitionIdOrName`
 
@@ -3945,7 +4215,6 @@ The role to assign. You can provide either the display name of the role definiti
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `roleAssignments.condition`
 
@@ -3953,7 +4222,6 @@ The conditions on the role assignment. This limits the resources it can be assig
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `roleAssignments.conditionVersion`
 
@@ -3961,7 +4229,6 @@ Version of the condition.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -3975,7 +4242,6 @@ The Resource Id of the delegated managed identity resource.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `roleAssignments.description`
 
@@ -3983,7 +4249,6 @@ The description of the role assignment.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `roleAssignments.name`
 
@@ -3991,7 +4256,6 @@ The name (as GUID) of the role assignment. If not provided, a GUID will be gener
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `roleAssignments.principalType`
 
@@ -3999,7 +4263,6 @@ The principal type of the assigned principal ID.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -4017,7 +4280,6 @@ Key vault reference and secret settings for the module's secrets export.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -4038,7 +4300,6 @@ The resource ID of the key vault where to store the secrets of this module.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `secretsExportConfiguration.sqlAdminPasswordSecretName`
 
@@ -4046,7 +4307,6 @@ The sqlAdminPassword secret name to create.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `secretsExportConfiguration.sqlAzureConnectionStringSercretName`
 
@@ -4054,7 +4314,6 @@ The sqlAzureConnectionString secret name to create.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `securityAlertPolicies`
 
@@ -4062,7 +4321,6 @@ The security alert policies to create in the server.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Required parameters**
@@ -4089,7 +4347,6 @@ The name of the Security Alert Policy.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `securityAlertPolicies.disabledAlerts`
 
@@ -4097,7 +4354,6 @@ Alerts to disable.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -4116,7 +4372,6 @@ Specifies that the alert is sent to the account administrators.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `securityAlertPolicies.emailAddresses`
 
@@ -4124,7 +4379,6 @@ Specifies an array of email addresses to which the alert is sent.
 
 - Required: No
 - Type: array
-- Nullable: Yes
 
 ### Parameter: `securityAlertPolicies.retentionDays`
 
@@ -4132,7 +4386,6 @@ Specifies the number of days to keep in the Threat Detection audit logs.
 
 - Required: No
 - Type: int
-- Nullable: Yes
 
 ### Parameter: `securityAlertPolicies.state`
 
@@ -4140,7 +4393,6 @@ Specifies the state of the policy, whether it is enabled or disabled or a policy
 
 - Required: No
 - Type: string
-- Nullable: Yes
 - Allowed:
   ```Bicep
   [
@@ -4155,7 +4407,6 @@ Specifies the identifier key of the Threat Detection audit storage account.
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `securityAlertPolicies.storageEndpoint`
 
@@ -4163,7 +4414,6 @@ Specifies the blob storage endpoint. This blob storage will hold all Threat Dete
 
 - Required: No
 - Type: string
-- Nullable: Yes
 
 ### Parameter: `tags`
 
@@ -4171,7 +4421,6 @@ Tags of the resource.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 ### Parameter: `virtualNetworkRules`
 
@@ -4179,7 +4428,6 @@ The virtual network rules to create in the server.
 
 - Required: No
 - Type: array
-- Nullable: No
 - Default: `[]`
 
 **Required parameters**
@@ -4201,7 +4449,6 @@ The name of the Server Virtual Network Rule.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `virtualNetworkRules.virtualNetworkSubnetId`
 
@@ -4209,7 +4456,6 @@ The resource ID of the virtual network subnet.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `virtualNetworkRules.ignoreMissingVnetServiceEndpoint`
 
@@ -4217,7 +4463,6 @@ Allow creating a firewall rule before the virtual network has vnet service endpo
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `vulnerabilityAssessmentsObj`
 
@@ -4225,7 +4470,6 @@ The vulnerability assessment configuration.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -4248,7 +4492,6 @@ The name of the vulnerability assessment.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `vulnerabilityAssessmentsObj.storageAccountResourceId`
 
@@ -4256,7 +4499,6 @@ The resource ID of the storage account to store the scan reports.
 
 - Required: Yes
 - Type: string
-- Nullable: No
 
 ### Parameter: `vulnerabilityAssessmentsObj.createStorageRoleAssignment`
 
@@ -4264,7 +4506,6 @@ Specifies whether to create a role assignment for the storage account.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `vulnerabilityAssessmentsObj.recurringScans`
 
@@ -4272,7 +4513,6 @@ The recurring scans settings.
 
 - Required: No
 - Type: object
-- Nullable: Yes
 
 **Required parameters**
 
@@ -4293,7 +4533,6 @@ Specifies an array of e-mail addresses to which the scan notification is sent.
 
 - Required: Yes
 - Type: array
-- Nullable: No
 
 ### Parameter: `vulnerabilityAssessmentsObj.recurringScans.emailSubscriptionAdmins`
 
@@ -4301,7 +4540,6 @@ Specifies that the schedule scan notification will be sent to the subscription a
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `vulnerabilityAssessmentsObj.recurringScans.isEnabled`
 
@@ -4309,7 +4547,6 @@ Recurring scans state.
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ### Parameter: `vulnerabilityAssessmentsObj.useStorageAccountAccessKey`
 
@@ -4317,7 +4554,6 @@ Specifies whether to use the storage account access key to access the storage ac
 
 - Required: No
 - Type: bool
-- Nullable: Yes
 
 ## Outputs
 
